@@ -6,6 +6,7 @@ class autofwd(penelope.Module):
 
     # Module category shown in `run` listing
     category = "Pivoting"
+    os_filter = "Unix"  # handles both Unix and Windows
 
     # Set True to auto-run when a session is first established
     on_session_start = False

@@ -1,20 +1,33 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PIPX_PYTHON="/root/.local/share/pipx/venvs/penelope/bin/python3"
-if [ -x "$PIPX_PYTHON" ]; then
-    PY="$PIPX_PYTHON"
-else
-    PY="python3"
+PIPX_LOCAL_VENVS="${PIPX_HOME:-$HOME/.local/share/pipx}/venvs"
+for _pkg in penelope-shell-handler penelope; do
+    _candidate="$PIPX_LOCAL_VENVS/$_pkg/bin/python3"
+    if [ -x "$_candidate" ]; then
+        PIPX_PYTHON="$_candidate"
+        break
+    fi
+done
+if [ -z "${PIPX_PYTHON:-}" ]; then
+    echo "[!] Could not find penelope pipx venv" >&2
+    exit 1
 fi
 
+PY="$PIPX_PYTHON"
 PENELOPE_BIN="$(dirname "$PIPX_PYTHON")"
-PENELOPE_PY="$PENELOPE_BIN/penelope.py"
-MODULE_LINK="$PENELOPE_BIN/penelopeplus_modules"
-LOADER_MARKER="# PenelopePlus loader"
+
+if [ -f "$PENELOPE_BIN/penelope.py" ]; then
+    PENELOPE_PY="$PENELOPE_BIN/penelope.py"
+else
+    PENELOPE_PY="$("$PY" -c "import importlib.util; print(importlib.util.find_spec('penelope').origin)")"
+fi
+
+PENELOPE_BAK="${PENELOPE_PY}.bak"
+MODULE_LINK="$(dirname "$PENELOPE_PY")/penelopeplus_modules"
 
 if [ ! -f "$PENELOPE_PY" ]; then
-    echo "[!] penelope.py not found at $PENELOPE_PY" >&2
+    echo "[!] penelope.py not found" >&2
     exit 1
 fi
 
@@ -26,54 +39,13 @@ else
     echo "[*] No symlink at $MODULE_LINK"
 fi
 
-# --- strip loader block ---
-if grep -qF "$LOADER_MARKER" "$PENELOPE_PY"; then
-    echo "[*] Removing loader block..."
-    "$PY" - "$PENELOPE_PY" "$LOADER_MARKER" <<'PYEOF'
-import sys, pathlib
-
-target = pathlib.Path(sys.argv[1])
-marker = sys.argv[2]
-end_marker = f"{marker} end"
-
-lines = target.read_text().splitlines(keepends=True)
-start = None
-end = None
-for i, line in enumerate(lines):
-    if line.strip().startswith(marker) and start is None:
-        start = i
-    if start is not None and end_marker in line and i > start:
-        end = i + 1
-        break
-
-if start is None:
-    print("[*] Marker not found")
-    sys.exit(0)
-
-strip_from = start
-while strip_from > 0 and lines[strip_from - 1].strip() == '':
-    strip_from -= 1
-
-del lines[strip_from:end]
-target.write_text(''.join(lines))
-print("[+] Loader block removed")
-PYEOF
+# --- restore original penelope.py from backup ---
+if [ -f "$PENELOPE_BAK" ]; then
+    cp "$PENELOPE_BAK" "$PENELOPE_PY"
+    rm "$PENELOPE_BAK"
+    echo "[+] penelope.py restored from backup, backup removed"
 else
-    echo "[*] No loader block found"
-fi
-
-# --- revert prompt patch ---
-if grep -qF "paint('Penelope+').yellow" "$PENELOPE_PY"; then
-    echo "[*] Reverting prompt patch..."
-    "$PY" - "$PENELOPE_PY" <<'PYEOF'
-import sys, pathlib
-target = pathlib.Path(sys.argv[1])
-text = target.read_text()
-target.write_text(text.replace("paint('Penelope+').yellow", "paint('Penelope').magenta", 1))
-print("[+] Prompt reverted")
-PYEOF
-else
-    echo "[*] No prompt patch found"
+    echo "[!] No backup found at $PENELOPE_BAK — penelope.py left as-is" >&2
 fi
 
 echo "[+] Uninstall complete."

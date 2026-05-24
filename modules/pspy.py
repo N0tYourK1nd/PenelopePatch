@@ -5,6 +5,7 @@ class pspy(penelope.Module):
 
     # Module category shown in `run` listing
     category = "Privilege Escalation"
+    os_filter = 'Unix'
 
     # Set False to disable without deleting the file
     enabled = True
@@ -22,10 +23,6 @@ class pspy(penelope.Module):
         """
         Runs pspy64 on the target in a new window, similar to how peass-ng works.
         """
-
-        # Guard: hook calls pass args=None — parse only when user-invoked
-        if args is None:
-            return
 
         # Guard on OS if module is platform-specific
         if session.OS != 'Unix':

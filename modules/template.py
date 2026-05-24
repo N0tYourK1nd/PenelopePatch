@@ -8,6 +8,8 @@ The class name becomes the module name shown in penelope's `run` command.
 
   category         = "Misc"  - Group shown in `run` listing. Use any string.
   enabled          = True    - Set False to disable without removing the file.
+  os_filter        = None    - 'Unix' | 'Windows' | None. Hides module from listing
+                               when attached session OS doesn't match.
   on_session_start = False   - Auto-run when a new session is first established.
   on_first_attach  = False   - Auto-run on the first interactive attach.
   on_session_end   = False   - Auto-run when session is about to die.
@@ -89,11 +91,15 @@ The class name becomes the module name shown in penelope's `run` command.
         stdout_dst=<file-like>→ stream remote stdout to a local file/socket.
         stderr_dst=<file-like>→ stream remote stderr to a local file/socket.
 
-  session.upload(local_items, remote_path=None, randomize_fname=False)
+  session.upload(local_items, remote_path=None, randomize_fname=False, url_to_bytes_fn=None)
       Upload file(s) to remote. local_items is a space-separated string of local
       paths, globs, or URLs. Returns list of quoted remote path strings.
         remote_path=None      → upload to session.cwd.
         randomize_fname=True  → append random suffix to avoid collisions.
+        url_to_bytes_fn=fn    → override URL fetch+extract. Signature:
+                                  fn(url) -> (filename_str, bytes)
+                                Used to pull a single binary out of an archive:
+                                  url_to_bytes_fn=lambda x: ('agent', zipf.read('agent'))
 
   session.download(remote_items)
       Download file(s) / globs from remote. Returns list of local Path objects.
@@ -138,8 +144,8 @@ The class name becomes the module name shown in penelope's `run` command.
 ━━━ PENELOPE GLOBALS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   ── logger ────────────────────────────────────────────────────────────────────
-    penelope.logger.debug(msg)    # [DEBUG] magenta — only shown in debug mode
-    penelope.logger.trace(msg)    # [•]     cyan    — between INFO and DEBUG (level 25)
+    penelope.logger.debug(msg)    # [DEBUG] magenta - only shown in debug mode
+    penelope.logger.trace(msg)    # [•]     cyan    - between INFO and DEBUG (level 25)
     penelope.logger.info(msg)     # [+]     green
     penelope.logger.warning(msg)  # [!]     yellow
     penelope.logger.error(msg)    # [-]     red
@@ -213,7 +219,10 @@ class template_module(penelope.Module):
     category = "Misc"
 
     # Set False to disable without deleting the file
-    enabled = True
+    enabled = False
+
+    # 'Unix' | 'Windows' | None - hides module in listing when OS doesn't match
+    os_filter = None
 
     # Set True to auto-run when a session is first established
     on_session_start = False
@@ -233,7 +242,7 @@ class template_module(penelope.Module):
         or None when triggered by a hook (on_session_start / on_first_attach / on_session_end).
         """
 
-        # Guard: hook calls pass args=None — parse only when user-invoked
+        # Guard: hook calls pass args=None - parse only when user-invoked
         if args is None:
             return
 

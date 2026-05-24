@@ -88,6 +88,7 @@ def _crack_with_john(hashes_by_fmt, wordlist):
 
 class sqlite_dump(penelope.Module):
     category = "Enumeration"
+    os_filter = 'Unix'
 
     def run(session, args):
         """
