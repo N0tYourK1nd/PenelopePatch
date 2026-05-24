@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PIPX_PYTHON="/root/.local/share/pipx/venvs/penelope/bin/python3"
+if command -v pipx &>/dev/null; then
+    _pipx_venvs="$(pipx environment 2>/dev/null | sed -n 's/^PIPX_LOCAL_VENVS=//p')"
+fi
+PIPX_LOCAL_VENVS="${_pipx_venvs:-${PIPX_HOME:-$HOME/.local/share/pipx}/venvs}"
+PIPX_PYTHON="$PIPX_LOCAL_VENVS/penelope/bin/python3"
 if [ -x "$PIPX_PYTHON" ]; then
     PY="$PIPX_PYTHON"
 else
