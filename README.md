@@ -1,8 +1,12 @@
-# PenelopePlus
+# PenelopePlus / Penelope+
 
 An extension kit for [penelope-shell-handler](https://github.com/brightio/penelope) (tested against v0.19.1).
 
 PenelopePlus injects a module loader into penelope at install time. Modules are Python files dropped into the `modules/` directory and picked up automatically on each session. It also patches several upstream behaviours around Windows shell handling.
+
+The main goal of this tool/patch is to extend functionality in a way that's similar to NetExec's module support, allowing users to quickly and easily add new functionality.
+
+I'll continue adding new modules as/when I make them!
 
 ## Requirements
 
