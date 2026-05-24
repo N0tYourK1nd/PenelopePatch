@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Test databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Claude
+.claude/
